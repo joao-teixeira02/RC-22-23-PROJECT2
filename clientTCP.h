@@ -30,3 +30,18 @@ struct socket_response {
     char response[1024];
     char code[3];
 };
+
+char * get_filename(char * path);
+
+int parse_input_url(char * url, struct url_args * parsed_args);
+
+int create_connect_socket(char *ip);
+
+int write_to_socket(int sockfd, int hasBody, char *header, char *body);
+
+int read_response(int sockfd, struct socket_response * response);
+
+int write_command(int sockfd, char *header, char *body, int reading_file);
+
+int login(struct url_args * parsed_args, int sockfd);
+
