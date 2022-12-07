@@ -35,13 +35,13 @@ char * get_filename(char * path);
 
 int parse_input_url(char * url, struct url_args * parsed_args);
 
-int create_connect_socket(char *ip);
+int create_connect_socket(char *ip, int port);
 
 int write_to_socket(int sockfd, int hasBody, char *header, char *body);
 
 int read_response(int sockfd, struct socket_response * response);
 
-int write_command(int sockfd, char *header, char *body, int reading_file);
+int write_command(int sockfd, char *header, char *body, int reading_file, struct socket_response *response);
 
 int login(struct url_args * parsed_args, int sockfd);
 
