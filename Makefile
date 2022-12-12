@@ -1,5 +1,3 @@
-# Makefile for RCOM - Project 2
-
 COMPILER_TYPE = gnu
 CC = gcc
 
