@@ -272,7 +272,7 @@ int download_file(int sockfd, int data_sockfd, struct url_args * parsed_args) {
             printf("Error opening or creating file\n\n");
             return -1;
         }
-        char data[1024];
+        char data[2048];
         int n_bytes;
         printf("Starting to download %s\n", parsed_args->filename);
         while((n_bytes = read(data_sockfd, data, sizeof(data)))){

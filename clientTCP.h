@@ -27,7 +27,7 @@ struct url_args {
 };
 
 struct socket_response {
-    char response[1024];
+    char response[2048];
     char code[3];
 };
 
