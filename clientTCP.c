@@ -1,30 +1,35 @@
 /**      (C)2000-2021 FEUP
  *       tidy up some includes and parameters
  * */
-
+ 
 #include "clientTCP.h"
 
-char * get_filename(char * path) {
-    char * aux;
+void get_filename(char * path, struct url_args * parsed_args) {
+    char * aux = "";
+    char directories[1024];
     char * token = strtok(path, "/");
    
     while(token != NULL) {
+        if(strcmp(aux,"")){
+            strcat(directories, aux);
+            strcat(directories, "/");
+        }
         aux = token;
         token = strtok(NULL, "/");
     }
 
-    return aux;
+    strcpy(parsed_args->path, directories);
+    strcpy(parsed_args->filename, aux);
 }
 
 int parse_input_url(char * url, struct url_args * parsed_args) {
-    printf("Received url: %s\n", url);
 
     char * ftp = strtok(url, ":");
     char * args = strtok(NULL, "/");
     char * path = strtok(NULL, "");
 
     if (ftp == NULL || args == NULL || path == NULL) {
-        fprintf(stderr, "Invalid URL!\n");
+        printf("Couldnt process given URL\n");
         return -1;
     }
     
@@ -44,25 +49,23 @@ int parse_input_url(char * url, struct url_args * parsed_args) {
 
         strcpy(parsed_args->host, host);
     }
-    else { //if it has no username and password then logs in as anonymous
+    else {
         strcpy(parsed_args->user, "anonymous");
         strcpy(parsed_args->password, "pass");
         strcpy(parsed_args->host, args);
     }
 
-    char * filename = get_filename(path);
-    strcpy(parsed_args->path, path);
-    strcpy(parsed_args->filename, filename);
+    get_filename(path, parsed_args);
 
     if (!strcmp(parsed_args->host, "") || !strcmp(parsed_args->path, "")) {
-        fprintf(stderr, "Invalid URL!\n");
+        printf("Couldnt process given URL\n");
         return -1;
     }
 
     struct hostent * h;
 
     if ((h = gethostbyname(parsed_args->host)) == NULL) {  
-        herror("gethostbyname");
+        printf("Error in gethostbyname\n");
         return -1;
     }
 
@@ -93,7 +96,7 @@ int create_connect_socket(char *ip, int port) {
 
     /*open a TCP socket*/
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket()");
+        printf("Error in call to function socket()\n");
         exit(-1);
     }
 
@@ -101,7 +104,7 @@ int create_connect_socket(char *ip, int port) {
     if (connect(sockfd,
                 (struct sockaddr *) &server_addr,
                 sizeof(server_addr)) < 0) {
-        perror("connect()");
+        printf("Error in call to function connect()\n");
         exit(-1);
     }
 
@@ -109,7 +112,7 @@ int create_connect_socket(char *ip, int port) {
 }
 
 int write_to_socket(int sockfd, int hasBody, char *header, char *body) {
-    char message[MAX_LENGTH];
+    char message[512];
 	strcpy(message, header);
 
 	if (hasBody) {
@@ -121,7 +124,7 @@ int write_to_socket(int sockfd, int hasBody, char *header, char *body) {
 
     int bytesSent = write(sockfd, message, strlen(message));
     if (bytesSent != strlen(message)) {		
-        fprintf(stderr, "Error writing message to socket!\n");
+        printf("Error writing message to socket!\n");
         return -1;
     }
 
@@ -165,28 +168,30 @@ int write_command(int sockfd, char* header, char* body, int reading_file, struct
 
     while (1) {
 
-        read_response(sockfd, response);
+        if(read_response(sockfd, response) == 0){
+            printf("Error getting response from server\n");
+            return -1;
+        }
 
-        switch (response->code[0]) { //switch with the different codes that can be given by the server
+        switch (response->code[0]) {
             case '1':
-                // Expecting another reply
                 if (reading_file) return 2;
                 else break;
             case '2':
                 // Success
                 return 2;
             case '3':
-                // Needs additional information (such as the password)
+                // Missing input
                 return 3;
             case '4':
-                // Error, try again
+                // Error
                 if (write_to_socket(sockfd, 1, header, body) < 0) {
                     printf("Error Sending Command  %s %s\n", header, body);
                     return -1;
                 }
                 break;
             case '5':
-                // Error in sending command, closing control socket, exiting application
+                // Error in sending command
                 printf("Command wasn't accepted... \n");
                 close(sockfd);
                 exit(-1);
@@ -245,23 +250,13 @@ int passive_mode(int sockfd) {
     return data_sockfd;
 }
 
-int update_working_directory(int sockfd, char * path) {
-    struct socket_response response;
-    if(write_command(sockfd, "CWD", path, 0, &response) < 0){
-        printf("Error sending command CWD\n\n");
-        return -1;
-    }
-	return 0;
-}
-
 int download_file(int sockfd, int data_sockfd, struct url_args * parsed_args) {
     struct socket_response response;
-    /*char path[1024];
+    char path[1024];
     strcpy(path, parsed_args->path);
-    strcat(path, "/");
-    strcat(path, parsed_args->filename);*/
+    strcat(path, parsed_args->filename);
 
-    int r = write_command(sockfd, "retr", parsed_args->filename, 1, &response);
+    int r = write_command(sockfd, "retr", path, 1, &response);
     if (r == -1) {
         printf("Error sending file command\n\n");
         return -1;
@@ -274,25 +269,27 @@ int download_file(int sockfd, int data_sockfd, struct url_args * parsed_args) {
         }
         char data[2048];
         int n_bytes;
-        printf("Starting to download %s\n", parsed_args->filename);
+        printf("\nStarting to download %s\n", parsed_args->filename);
         while((n_bytes = read(data_sockfd, data, sizeof(data)))){
             if(n_bytes < 0){
                 printf("Error reading from socket\n\n");
                 return -1;
             }
-            printf("%s", data);
             if((n_bytes = fwrite(data, n_bytes, 1, fp)) < 0){
                 printf("Error writing to file\n\n");
                 return -1;
             }
         }
-        printf("\nFinished downloading %s\n", parsed_args->filename);
+        printf("\nFinished downloading %s\n\n", parsed_args->filename);
         if(fclose(fp) < 0){
             printf("Error closing file\n\n");
             return -1;
         }
         close(data_sockfd);
-        read_response(sockfd, &response);
+        if(read_response(sockfd, &response) == 0){
+            printf("Error in read_response after downloading\n");
+            exit(-1);
+        };
         if (response.response[0] != '2')
             return -1;
         return 0;
@@ -307,41 +304,38 @@ int download_file(int sockfd, int data_sockfd, struct url_args * parsed_args) {
 int main(int argc, char **argv) {
         
     if (argc != 2) {
-        printf("Usage: rc ftp://[<user>:<password>@]<host>/<url-path>\n");
+        printf("Usage: download ftp://[<user>:<password>@]<host>/<url-path>\n");
         exit(-1);
     }
 
     struct url_args parsed_args;
 
-    parse_input_url(argv[1], &parsed_args);
+    if(parse_input_url(argv[1], &parsed_args) != 0){
+        return -1;
+    };
 
     struct socket_response response;
     
-    /*send a string to the server*/
     int sockfd = create_connect_socket(parsed_args.ip, SERVER_PORT);
-    read_response(sockfd, &response);
+    if (read_response(sockfd, &response) == 0) {
+        printf("Error in read_response after connecting to socket\n");
+        exit(-1);
+    };
     if (login(&parsed_args, sockfd) != 0) {
-        perror("Error in login");
+        printf("Error in login\n");
         exit(-1);
     } 
     int data_sockfd;
     if ((data_sockfd = passive_mode(sockfd)) == -1) {
-        perror("Error in passive mode");
+        printf("Error in creating data socket\n");
         exit(-1);
     }
-    if (strlen(parsed_args.path) > 0) {
-        if (update_working_directory(sockfd, parsed_args.path) < 0)
-        {
-            printf("Error changing directory\n\n");
-            return -1;
-        }
-    }
     if (download_file(sockfd, data_sockfd, &parsed_args) != 0) {
-        perror("Error in passive mode\n\n");
+        printf("Error in download file function\n");
         exit(-1);
     }
     if (close(sockfd)<0) {
-        perror("close()");
+        printf("Error while closing socket\n");
         exit(-1);
     }
     return 0;

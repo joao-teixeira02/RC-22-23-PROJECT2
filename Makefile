@@ -1,7 +1,7 @@
 COMPILER_TYPE = gnu
 CC = gcc
 
-PROG = rc
+PROG = download
 SRCS = clientTCP.c
 
 CFLAGS= -Wall -g

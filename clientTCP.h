@@ -11,10 +11,7 @@
 #include <string.h>
 
 #define SERVER_PORT 21
-#define SERVER_ADDR "ftp.up.pt"
-#define URL "ftp://anonymous:@ftp.up.pt/debian/README"
 #define MAX_IP_LENGTH 20
-#define MAX_LENGTH 256
 
 struct url_args {
     char host[512];
@@ -31,7 +28,7 @@ struct socket_response {
     char code[3];
 };
 
-char * get_filename(char * path);
+void get_filename(char * path, struct url_args * parsed_args);
 
 int parse_input_url(char * url, struct url_args * parsed_args);
 
