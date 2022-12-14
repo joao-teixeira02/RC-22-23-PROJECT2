@@ -7,6 +7,7 @@
 void get_filename(char * path, struct url_args * parsed_args) {
     char * aux = "";
     char directories[1024];
+    strcpy(directories, "");
     char * token = strtok(path, "/");
    
     while(token != NULL) {
@@ -57,7 +58,7 @@ int parse_input_url(char * url, struct url_args * parsed_args) {
 
     get_filename(path, parsed_args);
 
-    if (!strcmp(parsed_args->host, "") || !strcmp(parsed_args->path, "")) {
+    if (!strcmp(parsed_args->host, "")) {
         printf("Couldnt process given URL\n");
         return -1;
     }
